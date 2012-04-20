@@ -19,7 +19,7 @@ get "/" do
   @lon    = params[:mi_lon].  to_f # longitude
 
   # You can pass arbitrary parameters through via the embed code image src
-  @name   = params[:name].    to_s
+  @name   = params[:name]
 
   # full user-agent string, uri-encoded
   agent   = CGI::unescape(params[:mi_agent].to_s)
