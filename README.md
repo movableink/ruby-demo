@@ -1,7 +1,9 @@
 Movable Ink Demo Application
 ============================
 
-This is a sample web page powered by ruby/sinatra that can be used with Movable Ink's Web Crop app.
+This is a sample web page powered by ruby/sinatra that can be used with Movable Ink's [Web Crop](http://movableink.com/apps/web-crop) app.
+
+[See it live](http://movableink-ruby-demo.heroku.com)
 
 Prerequisites
 -------------
