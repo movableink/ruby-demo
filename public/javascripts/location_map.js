@@ -16,7 +16,7 @@ function addMap(pointData) {
   var map = po.map()
     .container(document.getElementById("poly_container")
                .appendChild(po.svg("svg")))
-    .center({lat: 0.0, lon: 0.0})
+    .center({lat: 20.0, lon: 0.0})
     .zoom(0)
     .zoomRange([1, 11])
     .add(po.interact());
