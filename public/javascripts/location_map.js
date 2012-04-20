@@ -4,9 +4,11 @@ function addMap(pointData) {
     return {
       geometry: {
         coordinates: [parseFloat(point[1]), parseFloat(point[0])],
-        type: "Point",
-        radius: 0,
-        text: point[2]
+        type: "Marker",
+        id: 'me',
+        radius: 4,
+        color: "#DD5786",
+        text: point[2] || ""
       }
     };
   });

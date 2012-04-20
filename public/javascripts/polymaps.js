@@ -1,8 +1,7 @@
 if (!org) var org = {};
 if (!org.polymaps) org.polymaps = {};
 (function(po){
-
-  po.version = "2.3.0"; // semver.org
+  po.version = "2.5.0"; // semver.org
 
   var zero = {x: 0, y: 0};
 po.ns = {
@@ -40,7 +39,7 @@ po.transform = function(a, b, c, d, e, f) {
   transform.zoomFraction = function(x) {
     if (!arguments.length) return zoomFraction;
     zoomFraction = x;
-    zoomDelta = Math.floor(zoomFraction + Math.log(Math.sqrt(a * a + b * b + c * c + d * d)) / Math.log(2));
+    zoomDelta = Math.floor(zoomFraction + Math.log(Math.sqrt(a * a + b * b + c * c + d * d)) / Math.LN2);
     k = Math.pow(2, -zoomDelta);
     return transform;
   };
@@ -182,12 +181,18 @@ po.cache = function(load, unload) {
   return cache;
 };
 po.url = function(template) {
-  var hosts = [];
+  var hosts = [],
+      repeat = true;
 
   function format(c) {
     var max = c.zoom < 0 ? 1 : 1 << c.zoom,
-        column = c.column % max;
-    if (column < 0) column += max;
+        column = c.column;
+    if (repeat) {
+      column = c.column % max;
+      if (column < 0) column += max;
+    } else if ((column < 0) || (column >= max)) {
+      return null;
+    }
     return template.replace(/{(.)}/g, function(s, v) {
       switch (v) {
         case "S": return hosts[(Math.abs(c.zoom) + c.row + column) % hosts.length];
@@ -217,6 +222,12 @@ po.url = function(template) {
   format.hosts = function(x) {
     if (!arguments.length) return hosts;
     hosts = x;
+    return format;
+  };
+
+  format.repeat = function(x) {
+    if (!arguments.length) return repeat;
+    repeat = x;
     return format;
   };
 
@@ -613,7 +624,7 @@ po.map = function() {
         l = map.pointLocation({x: (bl.x + tr.x) / 2, y: (bl.y + tr.y) / 2});
 
     // update the zoom level
-    zoom = zoom + zoomFraction - Math.log(k) / Math.log(2);
+    zoom = zoom + zoomFraction - Math.log(k) / Math.LN2;
     rezoom();
 
     // set the new center
@@ -671,10 +682,9 @@ resizer.remove = function(map) {
   }
 };
 
-if(window.addEventListener) {
-  // Note: assumes single window (no frames, iframes, etc.)!
-  window.addEventListener("resize", resizer, false);
-}
+// Note: assumes single window (no frames, iframes, etc.)!
+window.addEventListener("resize", resizer, false);
+window.addEventListener("load", resizer, false);
 
 // See http://wiki.openstreetmap.org/wiki/Mercator
 
@@ -1100,16 +1110,22 @@ po.image = function() {
 
     if (typeof url == "function") {
       element.setAttribute("opacity", 0);
-      tile.request = po.queue.image(element, url(tile), function(img) {
-        delete tile.request;
+      var tileUrl = url(tile);
+      if (tileUrl != null) {
+        tile.request = po.queue.image(element, tileUrl, function(img) {
+          delete tile.request;
+          tile.ready = true;
+          tile.img = img;
+          element.removeAttribute("opacity");
+          image.dispatch({type: "load", tile: tile});
+        });
+      } else {
         tile.ready = true;
-        tile.img = img;
-        element.removeAttribute("opacity");
         image.dispatch({type: "load", tile: tile});
-      });
+      }
     } else {
       tile.ready = true;
-      if (url) element.setAttributeNS(po.ns.xlink, "href", url);
+      if (url != null) element.setAttributeNS(po.ns.xlink, "href", url);
       image.dispatch({type: "load", tile: tile});
     }
   }
@@ -1126,73 +1142,19 @@ po.image = function() {
 
   return image;
 };
-po.geoJson = function(fetch) {
-  var geoJson = po.layer(load, unload),
-      container = geoJson.container(),
-      url,
-      clip = true,
-      clipId = "org.polymaps." + po.id(),
-      clipHref = "url(#" + clipId + ")",
-      clipPath = container.insertBefore(po.svg("clipPath"), container.firstChild),
-      clipRect = clipPath.appendChild(po.svg("rect")),
-      scale = "auto",
-      zoom = null,
-      features;
 
-  container.setAttribute("fill-rule", "evenodd");
-  clipPath.setAttribute("id", clipId);
+po.geometry = function (o, proj) {
+  return o && o.type in po.types && po.types[o.type](o, proj);
+};
 
-  if (!arguments.length) fetch = po.queue.json;
-
-  function projection(proj) {
-    var l = {lat: 0, lon: 0};
-    return function(coordinates) {
-      l.lat = coordinates[1];
-      l.lon = coordinates[0];
-      var p = proj(l);
-      coordinates.x = p.x;
-      coordinates.y = p.y;
-      return p;
-    };
-  }
-
-  function geometry(o, proj) {
-    return o && o.type in types && types[o.type](o, proj);
-  }
-
-  var types = {
+po.types = {
 
     Point: function(o, proj) {
-      var g = po.svg("g"),
-          c = o.coordinates,
-          p = proj(o.coordinates),
-          r = o.radius || 4.5,
-          circle = po.svg("circle");
-
-      circle.setAttribute("r", r);
-      circle.setAttribute("class", "point");
-      circle.setAttribute("transform", "translate(" + p.x + "," + p.y + ")");
-      g.appendChild(circle);
-      g.setAttribute("class", "point");
-      g.addEventListener("mouseover", function(e) {
-        var el = e.target.parentNode;
-        el.parentNode.appendChild(el);
-      });
-
-      if(o.text) {
-        var t = po.svg("text");
-        var b = po.svg("path");
-        b.setAttribute("d", "M351,269.5L346,264.5L334,264.5A5,5,0,0,1,329,259.5L329,257.5L329,252.5L329,247.5L329,245.5A5,5,0,0,1,334,240.5L346,240.5L351,240.5L356,240.5L368,240.5A5,5,0,0,1,373,245.5L373,247.5L373,252.5L373,257.5L373,259.5A5,5,0,0,1,368,264.5L356,264.5Z");
-        b.setAttribute("class", "label");
-        b.setAttribute("transform", "translate(" + (p.x - 351) + "," + (p.y - r - 273) + ")");
-        t.textContent = o.text;
-        t.setAttribute("class", "label");
-        t.setAttribute("transform", "translate(" + p.x + "," + (p.y - r - 18) + ")");
-        g.appendChild(b);
-        g.appendChild(t);
-      }
-
-      return g;
+      var p = proj(o.coordinates),
+      c = po.svg("circle");
+      c.setAttribute("r", 4.5);
+      c.setAttribute("transform", "translate(" + p.x + "," + p.y + ")");
+      return c;
     },
 
     MultiPoint: function(o, proj) {
@@ -1305,13 +1267,44 @@ po.geoJson = function(fetch) {
           n = c.length,
           x;
       while (++i < n) {
-        x = geometry(c[i], proj);
+        x = po.geometry(c[i], proj);
         if (x) g.appendChild(x);
       }
       return g;
     }
 
-  };
+};
+
+
+po.geoJson = function(fetch) {
+  var geoJson = po.layer(load, unload),
+      container = geoJson.container(),
+      url,
+      clip = true,
+      clipId = "org.polymaps." + po.id(),
+      clipHref = "url(#" + clipId + ")",
+      clipPath = container.insertBefore(po.svg("clipPath"), container.firstChild),
+      clipRect = clipPath.appendChild(po.svg("rect")),
+      scale = "auto",
+      zoom = null,
+      features;
+
+  container.setAttribute("fill-rule", "evenodd");
+  clipPath.setAttribute("id", clipId);
+
+  if (!arguments.length) fetch = po.queue.json;
+
+  function projection(proj) {
+    var l = {lat: 0, lon: 0};
+    return function(coordinates) {
+      l.lat = coordinates[1];
+      l.lon = coordinates[0];
+      var p = proj(l);
+      coordinates.x = p.x;
+      coordinates.y = p.y;
+      return p;
+    };
+  }
 
   function rescale(o, e, k) {
     return o.type in rescales && rescales[o.type](o, e, k);
@@ -1356,18 +1349,18 @@ po.geoJson = function(fetch) {
         case "FeatureCollection": {
           for (var i = 0; i < data.features.length; i++) {
             var feature = data.features[i],
-                element = geometry(feature.geometry, proj);
+                element = po.geometry(feature.geometry, proj);
             if (element) updated.push({element: g.appendChild(element), data: feature});
           }
           break;
         }
         case "Feature": {
-          var element = geometry(data.geometry, proj);
+          var element = po.geometry(data.geometry, proj);
           if (element) updated.push({element: g.appendChild(element), data: data});
           break;
         }
         default: {
-          var element = geometry(data, proj);
+          var element = po.geometry(data, proj);
           if (element) updated.push({element: g.appendChild(element), data: {type: "Feature", geometry: data}});
           break;
         }
@@ -1584,26 +1577,46 @@ po.wheel = function() {
     location = null;
   }
 
+  // mousewheel events are totally broken!
+  // https://bugs.webkit.org/show_bug.cgi?id=40441
+  // not only that, but Chrome and Safari differ in re. to acceleration!
+  var inner = document.createElement("div"),
+      outer = document.createElement("div");
+  outer.style.visibility = "hidden";
+  outer.style.top = "0px";
+  outer.style.height = "0px";
+  outer.style.width = "0px";
+  outer.style.overflowY = "scroll";
+  inner.style.height = "2000px";
+  outer.appendChild(inner);
+  document.body.appendChild(outer);
+
   function mousewheel(e) {
-    var delta = (e.wheelDelta / 120 || -e.detail) * .1,
+    var delta = e.wheelDelta || -e.detail,
         point;
 
-    /* Detect fast & large wheel events on WebKit. */
-    if (bug40441 < 0) {
-      var now = Date.now(), since = now - last;
-      if ((since > 9) && (Math.abs(e.wheelDelta) / since >= 50)) bug40441 = 1;
-      last = now;
-    }
-    if (bug40441 == 1) delta *= .03;
+    /* Detect the pixels that would be scrolled by this wheel event. */
+    if (delta) {
+      if (smooth) {
+        try {
+          outer.scrollTop = 1000;
+          outer.dispatchEvent(e);
+          delta = 1000 - outer.scrollTop;
+        } catch (error) {
+          // Derp! Hope for the best?
+        }
+        delta *= .005;
+      }
 
-    /* If smooth zooming is disabled, batch events into unit steps. */
-    if (!smooth && delta) {
-      var timeNow = Date.now();
-      if (timeNow - timePrev > 200) {
-        delta = delta > 0 ? +1 : -1;
-        timePrev = timeNow;
-      } else {
-        delta = 0;
+      /* If smooth zooming is disabled, batch events into unit steps. */
+      else {
+        var timeNow = Date.now();
+        if (timeNow - timePrev > 200) {
+          delta = delta > 0 ? +1 : -1;
+          timePrev = timeNow;
+        } else {
+          delta = 0;
+        }
       }
     }
 
@@ -1652,7 +1665,7 @@ po.wheel = function() {
     if (map) {
       container.removeEventListener("mousemove", move, false);
       container.removeEventListener("mousewheel", mousewheel, false);
-      container.removeEventListener("DOMMouseScroll", mousewheel, false);
+      container.removeEventListener("MozMousePixelScroll", mousewheel, false);
       container = null;
       map.off("move", move);
     }
@@ -1661,16 +1674,13 @@ po.wheel = function() {
       container = map.container();
       container.addEventListener("mousemove", move, false);
       container.addEventListener("mousewheel", mousewheel, false);
-      container.addEventListener("DOMMouseScroll", mousewheel, false);
+      container.addEventListener("MozMousePixelScroll", mousewheel, false);
     }
     return wheel;
   };
 
   return wheel;
 };
-
-// https://bugs.webkit.org/show_bug.cgi?id=40441
-var bug40441 = /WebKit\/533/.test(navigator.userAgent) ? -1 : 0;
 po.arrow = function() {
   var arrow = {},
       key = {left: 0, right: 0, up: 0, down: 0},
@@ -1790,26 +1800,35 @@ po.hash = function() {
       lat = 90 - 1e-8, // allowable latitude range
       map;
 
-  function move() {
-    var center = map.center(),
-        zoom = map.zoom(),
-        precision = Math.max(0, Math.ceil(Math.log(zoom) / Math.LN2)),
-        s1 = "#" + zoom.toFixed(2)
-             + "/" + center.lat.toFixed(precision)
-             + "/" + center.lon.toFixed(precision);
-    if (s0 !== s1) location.replace(s0 = s1); // don't recenter the map!
-  }
-
-  function hashchange() {
-    if (location.hash === s0) return; // ignore spurious hashchange events
-    var args = (s0 = location.hash).substring(1).split("/").map(Number);
-    if (args.length < 3 || args.some(isNaN)) move(); // replace bogus hash
+  var parser = function(map, s) {
+    var args = s.split("/").map(Number);
+    if (args.length < 3 || args.some(isNaN)) return true; // replace bogus hash
     else {
       var size = map.size();
       map.zoomBy(args[0] - map.zoom(),
           {x: size.x / 2, y: size.y / 2},
           {lat: Math.min(lat, Math.max(-lat, args[1])), lon: args[2]});
     }
+  };
+
+  var formatter = function(map) {
+    var center = map.center(),
+        zoom = map.zoom(),
+        precision = Math.max(0, Math.ceil(Math.log(zoom) / Math.LN2));
+    return "#" + zoom.toFixed(2)
+             + "/" + center.lat.toFixed(precision)
+             + "/" + center.lon.toFixed(precision);
+  };
+
+  function move() {
+    var s1 = formatter(map);
+    if (s0 !== s1) location.replace(s0 = s1); // don't recenter the map!
+  }
+
+  function hashchange() {
+    if (location.hash === s0) return; // ignore spurious hashchange events
+    if (parser(map, (s0 = location.hash).substring(1)))
+      move(); // replace bogus hash
   }
 
   hash.map = function(x) {
@@ -1826,7 +1845,100 @@ po.hash = function() {
     return hash;
   };
 
+  hash.parser = function(x) {
+    if (!arguments.length) return parser;
+    parser = x;
+    return hash;
+  };
+
+  hash.formatter = function(x) {
+    if (!arguments.length) return formatter;
+    formatter = x;
+    return hash;
+  };
+
   return hash;
+};
+po.touch = function() {
+  var touch = {},
+      map,
+      container,
+      rotate = false,
+      last = 0,
+      zoom,
+      angle,
+      locations = {}; // touch identifier -> location
+
+  window.addEventListener("touchmove", touchmove, false);
+
+  function touchstart(e) {
+    var i = -1,
+        n = e.touches.length,
+        t = Date.now();
+
+    // doubletap detection
+    if ((n == 1) && (t - last < 300)) {
+      var z = map.zoom();
+      map.zoomBy(1 - z + Math.floor(z), map.mouse(e.touches[0]));
+      e.preventDefault();
+    }
+    last = t;
+
+    // store original zoom & touch locations
+    zoom = map.zoom();
+    angle = map.angle();
+    while (++i < n) {
+      t = e.touches[i];
+      locations[t.identifier] = map.pointLocation(map.mouse(t));
+    }
+  }
+
+  function touchmove(e) {
+    switch (e.touches.length) {
+      case 1: { // single-touch pan
+        var t0 = e.touches[0];
+        map.zoomBy(0, map.mouse(t0), locations[t0.identifier]);
+        e.preventDefault();
+        break;
+      }
+      case 2: { // double-touch pan + zoom + rotate
+        var t0 = e.touches[0],
+            t1 = e.touches[1],
+            p0 = map.mouse(t0),
+            p1 = map.mouse(t1),
+            p2 = {x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2}, // center point
+            c0 = po.map.locationCoordinate(locations[t0.identifier]),
+            c1 = po.map.locationCoordinate(locations[t1.identifier]),
+            c2 = {row: (c0.row + c1.row) / 2, column: (c0.column + c1.column) / 2, zoom: 0},
+            l2 = po.map.coordinateLocation(c2); // center location
+        map.zoomBy(Math.log(e.scale) / Math.LN2 + zoom - map.zoom(), p2, l2);
+        if (rotate) map.angle(e.rotation / 180 * Math.PI + angle);
+        e.preventDefault();
+        break;
+      }
+    }
+  }
+
+  touch.rotate = function(x) {
+    if (!arguments.length) return rotate;
+    rotate = x;
+    return touch;
+  };
+
+  touch.map = function(x) {
+    if (!arguments.length) return map;
+    if (map) {
+      container.removeEventListener("touchstart", touchstart, false);
+      container = null;
+    }
+    if (map = x) {
+      container = map.container();
+      container.addEventListener("touchstart", touchstart, false);
+    }
+    return touch;
+  };
+
+  return touch;
 };
 // Default map controls.
 po.interact = function() {
@@ -1834,119 +1946,19 @@ po.interact = function() {
       drag = po.drag(),
       wheel = po.wheel(),
       dblclick = po.dblclick(),
+      touch = po.touch(),
       arrow = po.arrow();
 
   interact.map = function(x) {
     drag.map(x);
     wheel.map(x);
     dblclick.map(x);
+    touch.map(x);
     arrow.map(x);
     return interact;
   };
 
   return interact;
-};
-
-po.fullscreen = function() {
-  var fullscreen = {};
-  var svg = $(po.svg("svg"))
-  var circle = $(po.svg("circle"));
-  var arrow = $(po.svg("path"));
-  var map;
-  var container;
-  var isFullscreen = 0;
-
-  svg.append(circle);
-  svg.append(arrow);
-  svg.click(goFullscreen);
-  $(window).bind("keydown",function(e){
-    e.which == 27 && isFullscreen && goFullscreen();
-  });
-
-  svg.css({ position: "absolute",
-            right: "-16px",
-            top: "-16px",
-            visibility: "visible",
-            cursor: "pointer" });
-
-  svg.get(0).setAttribute("width", "32");
-  svg.get(0).setAttribute("height", "32");
-
-  circle.attr("fill", "#fff")
-    .attr("stroke", "#ccc")
-    .attr("stroke-width", "4");
-
-  circle.get(0).setAttribute("cx", "16");
-  circle.get(0).setAttribute("cy", "16");
-  circle.get(0).setAttribute("r", "14");
-
-  circle.append("<title>Toggle Fullscreen. (ESC)</title>");
-
-  arrow.attr("d", "M0,0L0,.5 2,.5 2,1.5 4,0 2,-1.5 2,-.5 0,-.5Z")
-    .attr("pointer-events", "none")
-    .attr("fill", "#aaa");
-
-  arrow.get(0).setAttribute("transform", "translate(16,16)rotate(-45)scale(5)translate(-1.85,0)")
-
-  fullscreen.map = function(x) {
-    if (!arguments.length) return map;
-
-    if (map = x) {
-      container = $(map.container());
-      draw();
-    }
-
-    return map;
-  };
-
-  function goFullscreen() {
-    if(isFullscreen = !isFullscreen) {
-      container.css({
-        position: "fixed",
-        borderWidth: 0,
-        width: "100%",
-        height: "100%",
-        top: 0,
-        left: 0
-      });
-
-      svg.css({
-        position: "fixed",
-        right: "16px",
-        top: "16px"
-      });
-
-      arrow.get(0).setAttribute("transform","translate(16,16) rotate(135) scale(5) translate(-1.85,0)");
-
-    } else {
-      container.css({
-        position: null,
-        borderWidth: null,
-        width: null,
-        height: null,
-        top: null,
-        left: null
-      });
-
-      svg.css({
-        position: "absolute",
-        right: "-16px",
-        top: "-16px"
-      });
-
-      arrow.get(0).setAttribute("transform","translate(16,16) rotate(-45) scale(5) translate(-1.85,0)");
-    }
-
-    map.resize()
-  };
-
-  function draw() {
-    container.parent().append(svg);
-
-    return fullscreen;
-  };
-
-  return fullscreen;
 };
 
 po.compass = function() {
@@ -2140,9 +2152,8 @@ po.compass = function() {
       case "bottom-left": y = size.y - y; break;
       case "bottom-right": x = size.x - x; y = size.y - y; break;
     }
-    var tx = "translate(" + x + "," + y + ")";
-    if (panContainer) panContainer.setAttribute("transform", tx);
-    if (zoomContainer) zoomContainer.setAttribute("transform", tx);
+    g.setAttribute("transform", "translate(" + x + "," + y + ")");
+    dragRect.setAttribute("transform", "translate(" + -x + "," + -y + ")");
     for (var i in ticks) {
       i == map.zoom()
           ? ticks[i].setAttribute("class", "active")

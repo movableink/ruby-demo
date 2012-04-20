@@ -4,6 +4,7 @@
 
     <script src="/javascripts/jquery-1.6.js"></script>
     <script src="/javascripts/polymaps.js"></script>
+    <script src="/javascripts/polymaps-extras.js"></script>
     <script src="/javascripts/location_map.js"></script>
 
     <link href="/stylesheets/map.css" rel="stylesheet">
@@ -73,7 +74,7 @@
     <!-- Just setting up the map -->
     <script>
       //<![CDATA[
-        var pointData = [[<%= @lat %>, <%= @lon %>, 1]];
+        var pointData = [[<%= @lat %>, <%= @lon %>, "hello!"]];
 
         addMap(pointData);
       //]]>
