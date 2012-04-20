@@ -12,12 +12,12 @@ Prerequisites
 Setup
 -----
 
- * `git clone git://github.com/movableink/ruby-demo.git movableink-ruby-demo`
- * `cd movableink-ruby-demo`
- * `gem install heroku`
- * `heroku login`
- * `heroku create`
- * `git push heroku`
+    git clone git://github.com/movableink/ruby-demo.git movableink-ruby-demo
+    cd movableink-ruby-demo
+    gem install heroku
+    heroku login
+    heroku create
+    git push heroku
 
 License
 -------
