@@ -2,6 +2,7 @@ require 'rubygems'
 require 'sinatra'
 
 require 'erubis'
+require 'tzinfo'
 require 'cgi'
 
 # We don't actually have any cookies to steal, but still a good practice
@@ -32,8 +33,8 @@ get "/" do
   end
 
   if tz and tz != ""
-    Time.zone = tz
-    time = Time.zone.now
+    zone = TZInfo::Timezone.get(tz)
+    time = zone.utc_to_local(Time.now.utc)
   else
     time = Time.now
   end

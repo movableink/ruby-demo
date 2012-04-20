@@ -2,6 +2,7 @@
   <head>
     <script src="/javascripts/jquery-1.6.js"></script>
     <script src="/javascripts/polymaps.js"></script>
+    <script src="/javascripts/location_map.js"></script>
     <link href="/stylesheets/map.css" rel="stylesheet">
     <link href="/stylesheets/geo.css" rel="stylesheet">
     <style>
@@ -17,6 +18,10 @@
         margin-bottom: 1em;
         margin-top: 0.5em;
       }
+
+      a {
+        color: #006699;
+      }
     </style>
   </head>
 
@@ -25,6 +30,8 @@
     <p>Crop the area below:</p>
 
     <div style="width: 407px; padding: 10px; background-color: #FFF; margin: auto;">
+
+      <!-- Interesting stuff begins here -->
 
       <!-- Movable Ink will override the web crop's dimensions and offsets with those of -->
       <!-- a div with id 'mi_size_container', if present. -->
@@ -59,43 +66,30 @@
     <!-- a link with id 'mi_dynamic_link', if present.  It can live anywhere on the page. -->
     <a id="mi_dynamic_link" href="http://google.com/?q=<%= CGI::escape @location %>"></a>
 
-    <p>If there is no data above, it is because all of the contextual information will be passed to this page as query parameters when you create the web crop.  But for now, try adding some <a href="/?mi_lat=38.90&mi_lon=-77.03&mi_city=Washington&mi_reg=DC&mi_cc=US&mi_type=desktop&name=Michael">default parameters</a> to this page's URL.</p>
-
     <!-- Just setting up the map -->
     <script>
       //<![CDATA[
-        var po = org.polymaps;
-
         var pointData = [[<%= @lat %>, <%= @lon %>, 1]];
 
-        var points = $.map(pointData, function(point) {
-          return {
-                    geometry: {
-                      coordinates: [parseFloat(point[1]), parseFloat(point[0])],
-                      type: "Point",
-                      radius: 0,
-                      text: point[2]
-                    }
-                  };
-        });
-
-        var map = po.map()
-          .container(document.getElementById("poly_container")
-                      .appendChild(po.svg("svg")))
-          .center({lat: 0.0, lon: 0.0})
-          .zoom(0)
-          .zoomRange([1, 11])
-          .add(po.interact());
-
-        map.add(po.image()
-          .url(po.url("/images"
-          + "/d91a382ca37e4859af3dbad7328ec945"
-          + "/28808/256/{Z}/{X}/{Y}.png")
-          .hosts(["a.", "b.", "c.", ""])));
-
-        map.add(po.geoJson()
-          .features(points));
+        addMap(pointData);
       //]]>
     </script>
+
+    <!-- Interesting stuff ends here -->
+
+    <p id="params_message">If there is no data above, it is because all of the contextual information will be passed to this page as query parameters when you create the web crop.  But for now, try adding some <a href="/?mi_tz=America/New_York&mi_lat=38.90&mi_lon=-77.03&mi_city=Washington&mi_reg=DC&mi_cc=US&mi_type=desktop&name=Michael">default parameters</a> to this page's URL.</p>
+
+    <script>
+      if(document.location.search) {
+        document.getElementById("params_message").style.display = "none";
+      }
+    </script>
+
+    <p style="margin-top: 5em; border-top: 1px solid #333; padding-top: 1em;">
+      For more about our features, check us out at <a href="http://movableink.com">http://movableink.com</a>.
+    </p>
+    <p style="font-size: 0.8em;">
+      &copy 2012 Movable, Inc.  This demo application is licensed under the MIT License.
+    </p>
   </body>
 </html>
