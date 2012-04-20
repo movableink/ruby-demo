@@ -1,0 +1,54 @@
+circle.point {
+   fill: #fb595d;
+   stroke: #FFF;
+   stroke-width: 2px;
+}
+
+#map_container {
+   width: 407px;
+   height: 229px;
+   margin-bottom: 20px;
+   position: relative;
+   overflow: hidden;
+}
+
+#poly_container {
+   padding: 6px 6px 6px 6px;
+   position: relative;
+   width: 394px;
+   height: 217px;
+}
+
+#title {
+   position: absolute;
+   top: 6px;
+   left: 6px;
+   background: rgba(255,255,255,0.9);
+   color: #000;
+   z-index: 10001;
+   padding: 5px;
+   width: 385px;
+   font-size: 0.7em;
+   font-weight: bold;
+   font-family: Helvetica, sans-serif;
+}
+
+#text {
+   width: 400px;
+   margin-top: -15px;
+   font-size: 1em;
+   font-family: Helvetica, sans-serif;
+   line-height: 1.125em;
+   color: #666;
+}
+
+img#map {
+   position: absolute;
+   top: 0;
+   left: 0;
+   z-index: 10000;
+}
+
+span.var {
+   color: #000;
+}

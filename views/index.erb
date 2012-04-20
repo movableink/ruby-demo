@@ -1,0 +1,74 @@
+<html>
+  <head>
+    <script src="/javascripts/jquery-1.6.js"></script>
+    <script src="/javascripts/polymaps.js"></script>
+    <link href="/stylesheets/map.css" rel="stylesheet">
+    <link href="/stylesheets/geo.css" rel="stylesheet">
+  </head>
+
+  <body>
+    <!-- Movable Ink will override the web crop's dimensions and offsets with those of -->
+    <!-- a div with id 'mi_size_container', if present. -->
+    <div id="mi_size_container">
+      <div id="map_container">
+        <div id="poly_container">
+          <img id="map" src="/images/map_overlay.png">
+        </div>
+      </div>
+      <div id="text">
+        <% if @name %>
+          Hello,
+          <span class="var"><%= @name %></span>.
+        <% end %>
+
+        You loaded this image on a
+        <span class="var"><%= @device %></span>
+        near
+        <span class="var"><%= @location %></span>
+        on
+        <span class="var"><%= @time %></span>
+      </div>
+
+    </div>
+
+    <!-- Movable Ink will override the web crop's redirect link with the href of -->
+    <!-- a link with id 'mi_dynamic_link', if present.  It can live anywhere on the page. -->
+    <a id="mi_dynamic_link" href="http://google.com/?q=<%= CGI::escape @location %>"></a>
+
+    <script>
+      //<![CDATA[
+        var po = org.polymaps;
+
+        var pointData = [[<%= @lat %>, <%= @lon %>, 1]];
+
+        var points = $.map(pointData, function(point) {
+          return {
+                    geometry: {
+                      coordinates: [parseFloat(point[1]), parseFloat(point[0])],
+                      type: "Point",
+                      radius: 0,
+                      text: point[2]
+                    }
+                  };
+        });
+
+        var map = po.map()
+          .container(document.getElementById("poly_container")
+                      .appendChild(po.svg("svg")))
+          .center({lat: 0.0, lon: 0.0})
+          .zoom(0)
+          .zoomRange([1, 11])
+          .add(po.interact());
+
+        map.add(po.image()
+          .url(po.url("/images"
+          + "/d91a382ca37e4859af3dbad7328ec945"
+          + "/28808/256/{Z}/{X}/{Y}.png")
+          .hosts(["a.", "b.", "c.", ""])));
+
+        map.add(po.geoJson()
+          .features(points));
+      //]]>
+    </script>
+  </body>
+</html>
